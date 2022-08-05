@@ -14,14 +14,14 @@ fullscreen = False
 fullscreenRes = False
 resPath = "./res/"
 
-flySpeed = screenW/400
+flySpeed = screenW/500
 playerX = int(screenW*0.3)
 fps = 60
 
-flapForce = -8
-gravityForce = 0.3
+flapForce = -5
+gravityForce = 0.2
 
-gateH = int(screenH*0.4)
+gateH = int(screenH*0.3)
 
 
 backgroundC = (50,50,200)
@@ -232,7 +232,7 @@ while work:
 	player.deathTime = 0
 	speed = flySpeed
 	player.y2=screenH/2+player.h/2-2
-	player.y1 = screenH/2-player.h/2-2
+	player.y1 = player.y2-player.h
 	player.gravityStrength = 0
 	startRun = True
 
@@ -243,25 +243,14 @@ while work:
 	sinX = 0
 	while startRun:
 		for event in pg.event.get():
-			if event.type == pg.QUIT:
+			if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
 				work = False
 				gameRun = False
+				startRun = False
+			else:
+				startRun = False
 
-			elif event.type == pg.KEYDOWN:
-				if event.key == pg.K_SPACE:
-					if not player.dead:
-						player.gravityStrength = -12
-						flap.play()
-					startRun = False
-				if event.key == pg.K_d:
-					if not player.dead:
-						player.gravityStrength = -12
-						flap.play()
-					startRun = False
-				if event.key == pg.K_ESCAPE:
-					work = False
-					gameRun = False
-					startRun = False
+
 
 		#if player.y2 < screenH-borderThickness-2:
 		#	player.gravityStrength += 1.1
