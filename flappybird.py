@@ -10,18 +10,18 @@
 
 screenW = 800
 screenH = 480
-fullscreen = True
+fullscreen = False
 fullscreenRes = False
 resPath = "./res/"
 
-flySpeed = screenW/400
+flySpeed = screenW/500
 playerX = int(screenW*0.3)
 fps = 60
 
-flapForce = -8
-gravityForce = 0.3
+flapForce = -5
+gravityForce = 0.2
 
-gateH = int(screenH*0.4)
+gateH = int(screenH*0.3)
 
 
 backgroundC = (50,50,200)
@@ -87,7 +87,7 @@ class Player(object):
 		self.dead = False
 		self.deathTime = 0
 		self.deadX = 0
-		self.deadX = 0
+		self.deadY = 0
 
 	def move(self):
 		self.y1 += int(self.gravityStrength*clock.get_fps()/60)
@@ -106,7 +106,7 @@ class Player(object):
 		global playerC,birdPic
 
 		if player.dead:
-			screen.blit(deadCrossPic,(self.deadX,self.deadX))
+			screen.blit(deadCrossPic,(self.deadX,self.deadY))
 			if player.y2 < (screenH - borderThickness-1):
 				screen.blit(pg.transform.rotate(birdPic,-90),(self.x1,self.y1))
 				screen.blit(auaPic,(self.x2+4,self.y1-4))
@@ -232,41 +232,25 @@ while work:
 	player.deathTime = 0
 	speed = flySpeed
 	player.y2=screenH/2+player.h/2-2
-	player.y1 = screenH/2-player.h/2-2
+	player.y1 = player.y2-player.h
 	player.gravityStrength = 0
 	startRun = True
 
 	planeX = 0
 	scoreLabelX = -2*planePicW/3-10
 	player.deadX = 0
-	player.deadX = 0
+	player.deadY = 0
 	sinX = 0
 	while startRun:
-		leftClick,middleClick,rightClick = pg.mouse.get_pressed()
-		if leftClick:
-			player.gravityStrength = -10
-			flap.play()
-			startRun = False
 		for event in pg.event.get():
-			if event.type == pg.QUIT:
+			if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
 				work = False
 				gameRun = False
+				startRun = False
+			else:
+				startRun = False
 
-			elif event.type == pg.KEYDOWN:
-				if event.key == pg.K_SPACE:
-					if not player.dead:
-						player.gravityStrength = -12
-						flap.play()
-					startRun = False
-				if event.key == pg.K_d:
-					if not player.dead:
-						player.gravityStrength = -12
-						flap.play()
-					startRun = False
-				if event.key == pg.K_ESCAPE:
-					work = False
-					gameRun = False
-					startRun = False
+
 
 		#if player.y2 < screenH-borderThickness-2:
 		#	player.gravityStrength += 1.1
@@ -310,11 +294,6 @@ while work:
 
 	############################################################################
 	while gameRun:
-		leftClick,middleClick,rightClick = pg.mouse.get_pressed()
-		if leftClick:
-			if not player.dead:
-				player.gravityStrength = -10
-				flap.play()
 		for event in pg.event.get():
 			if event.type == pg.QUIT:
 				work = False
@@ -355,14 +334,7 @@ while work:
 		columnProtection -= speed*clock.get_fps()/60
 
 
-
 		delGates = []
-		if player.y2 > screenH-borderThickness:
-			if player.deadX == 0:
-				hit.play()
-				player.deadX = player.x1+player.w/2 - deathCrossSize/2
-				player.deadX = player.y1+player.h/2 - deathCrossSize/2
-			showGameOver = deathTime
 
 		for gate in gates:
 			gate.move()
@@ -373,13 +345,17 @@ while work:
 				scoreLabelY = screenH/2-scoreLabel.get_height()/2-screenH/4
 				point.play()
 				gate.scored = True
-			elif player.x2-10 > gate.x1 and player.x1+10 < gate.x2: #if player and pipe are on the same x-Pos
-				if player.y2-5 > gate.y2 or player.y1+5 < gate.y1:
 
-					if player.deadX == 0:
-						hit.play()
-						player.deadX = player.x1+player.w/2 - deathCrossSize/2
-						player.deadX = player.y1+player.h/2 - deathCrossSize/2
+			# check if player should die
+			elif player.deadX == 0:
+				if player.y2 > screenH-borderThickness or (
+					player.x2-10 > gate.x1 and 
+					player.x1+10 < gate.x2 and 
+					(player.y2-5 > gate.y2 or player.y1+5 < gate.y1)): # check if player position is valid	
+					
+					hit.play()
+					player.deadX = player.x1+player.w/2 - deathCrossSize/2
+					player.deadY = player.y1+player.h/2 - deathCrossSize/2
 					showGameOver = deathTime
 
 			if gate.x2 < 0:
@@ -393,6 +369,9 @@ while work:
 			print("Game Over! Score: {}".format(score))
 			gameRun = False
 		#show
+
+		screen.fill((0,0,0))
+
 		for x in range(int(backgroundX),screenW,screenW):
 			screen.blit(backgroundPic,(x,-borderThickness+4))
 
