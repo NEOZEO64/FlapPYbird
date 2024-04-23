@@ -1,410 +1,261 @@
-###############################################################################################
-# Name: Flappy Bird
-# Date: 24.05.19 - newest: 13.8.20
-#
-# Programming note: ...X / ...Y : Position X / Y
-#					...W / ...H : Width / Height
-# 					...C        : Color
-###############################################################################################
-
-
-screenW = 800
-screenH = 480
-fullscreen = False
-fullscreenRes = False
-resPath = "./res/"
-
-flySpeed = screenW/500
-playerX = int(screenW*0.3)
-fps = 60
-
-flapForce = -5
-gravityForce = 0.2
-
-gateH = int(screenH*0.3)
-
-
-backgroundC = (50,50,200)
-borderThickness = int(screenH/10)
-fontC = (255,0,0)
-fontSize = int(screenH/20)
-groundC = (0,255,0)
-groundSize = int(screenW/3)
-ceilingC = (50,50,50)
-
-gapBetweenPipes = int(screenW/3)
-pipeW = int(screenW /16)
-pipeH = int(screenH*0.7)
-
-playerSize = int(screenW/25)
-playerC = (255,0,0)
-
-deathCrossSize = int(screenH/12)
-auaW = int(screenH/18)
-auaH = int(auaW*0.7)
-
-planePicW = int(screenW/4)
-planePicH = int(planePicW*0.17)
-
-deathTime = 100
-
-playerStartMoveMode = 1 #1 = sin-wave, 2 = jumping
-
-class Gate(object):
-	def __init__(self,yc):
-		global gateH
-		self.x1=screenW
-		self.x2=screenW+pipeW
-
-		self.y1=yc-gateH/2
-		if self.y1 < 10:
-			self.y1 = -9000
-		self.y2=yc+gateH/2
-
-		self.w = pipeW
-		self.h = gateH
-
-		self.scored = False
-	def move(self):
-		self.x1-= speed*clock.get_fps()/60
-		self.x2-= speed*clock.get_fps()/60
-	def show(self):
-		if not self.y1 < 10:
-			screen.blit(pipe_upsidedown_pic,(self.x1,self.y1-pipeH))
-		screen.blit(pipepic,(self.x1,self.y2))
-
-class Player(object):
-	def __init__(self,xc,yc,w,h):
-		global borderThickness,playerW,playerH
-		self.w = w
-		self.h = h
-		self.x1=xc-w/2
-		self.x2=xc+w/2
-		self.y2=screenH/2+self.h/2
-		self.y1 = screenH/2-self.h/2
-		self.gravityStrength = 0
-		self.wingsUp = 1
-		self.dead = False
-		self.deathTime = 0
-		self.deadX = 0
-		self.deadY = 0
-
-	def move(self):
-		self.y1 += int(self.gravityStrength*clock.get_fps()/60)
-		self.y2 += int(self.gravityStrength*clock.get_fps()/60)
-
-		if self.dead == True:
-			if self.y2 > screenH-borderThickness:
-				self.y2 = screenH-borderThickness
-				self.y1 = screenH-borderThickness - self.h
-
-		self.wingsUp += 1
-		if self.wingsUp == 10:
-			self.wingsUp = 0
-
-	def show(self):
-		global playerC,birdPic
-
-		if player.dead:
-			screen.blit(deadCrossPic,(self.deadX,self.deadY))
-			if player.y2 < (screenH - borderThickness-1):
-				screen.blit(pg.transform.rotate(birdPic,-90),(self.x1,self.y1))
-				screen.blit(auaPic,(self.x2+4,self.y1-4))
-			else:
-				screen.blit(ripPic,(self.x1+self.w/2-(ripW/2)-player.w*2, self.y1+self.h/2-(ripH/2)))
-				screen.blit(skelettPic,(self.x1, self.y1+self.h/2+(ripH/2)+10))
-				screen.blit(auaPic,(self.x1+self.w+4,self.y1+self.h/2+(ripH/2)-4))
-
-
-		else:
-			if self.wingsUp < 5:
-				pic = pg.transform.rotate(birdPic,-self.gravityStrength*2)
-				screen.blit(pic,(int(self.x1),int(self.y1)))
-			if self.wingsUp >= 5:
-				pic = pg.transform.rotate(birdPicW,-self.gravityStrength*2)
-				screen.blit(pic,(int(self.x1),int(self.y1)))
-
-###############
-# Program start
-
+# Flappy Bird, wrote on April 24th, 2024
 
 import pygame as pg
 import random as r
-from time import sleep
-import math
-pg.mixer.pre_init(44100, -16, 1, 512)
-pg.mixer.init()
+
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 480
+
+
+speed = WINDOW_WIDTH/250
+pipeDist = WINDOW_WIDTH/5
+gravity = 0.4
+
+gameOverTime = 100
+
 pg.init()
-
-
-#please don't change:
-work = True
 clock = pg.time.Clock()
-clock.tick(60)
 
-screeninfo = pg.display.Info() #needed for displaying the right screen resolution
+fps = 30
 
-if fullscreen:
-	if fullscreenRes:
-		screen = pg.display.set_mode((screeninfo.current_w,screeninfo.current_h),pg.FULLSCREEN) # | pg.DOUBLEBUF | pg.HWSURFACE)
-	else:
-		screen = pg.display.set_mode((screenW,screenH),pg.FULLSCREEN) # | pg.DOUBLEBUF | pg.HWSURFACE)
-else:
-	if fullscreenRes:
-		pg.display.set_mode((screeninfo.current_w,screeninfo.current_h))
-	else:
-		screen = pg.display.set_mode((screenW, screenH)) 
+screen = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT)) 
 
-flipflopSpace = True
-font = pg.font.Font('freesansbold.ttf', fontSize)
+def fpsCoeff():
+    currentFps = clock.get_fps()
+    if currentFps == 0:
+        return 1
+    else:
+        return fps / currentFps
 
-pipepic = pg.image.load(resPath+'pipe.bmp')
-pipepic = pg.transform.scale(pipepic, (pipeW,pipeH))
-pipe_upsidedown_pic = pg.transform.rotate(pipepic,180)
+class PipePair(object):
+    w = WINDOW_WIDTH /16
+    h = WINDOW_HEIGHT*0.7
+
+    gap = WINDOW_HEIGHT*0.3
+    margin = 10
+
+    pic = pg.image.load("./res/pipe.bmp")
+    pic = pg.transform.scale(pic, (w,h))
+    pic_180 = pg.transform.rotate(pic,180)
+    vX = speed
+
+    def __init__(self):
+        self.x = WINDOW_WIDTH
+        self.y = r.randint(int(PipePair.margin), int(WINDOW_HEIGHT-PipePair.gap-Environment.groundH-PipePair.margin))
+        self.scored = False
+
+    def move(self): # return if scored
+        ox = self.x
+        self.x-= PipePair.vX*fpsCoeff()
+        if ox > Bird.x and self.x < Bird.x and self.scored == False:
+            self.scored = True
+            return True
+        return False
+
+    def show(self):
+        screen.blit(PipePair.pic_180,(self.x,self.y-self.h))
+        screen.blit(PipePair.pic,(self.x,self.y + PipePair.gap))
+        
+
+class Bird(object):
+    w = WINDOW_WIDTH/25
+    h = w/1.3
+    x = WINDOW_WIDTH*0.3
+
+    pic = pg.transform.scale(pg.image.load("./res/Bird.bmp"), (w,h))
+    pic2 = pg.transform.scale(pg.image.load("./res/Bird2.bmp"), (w,h))
+
+    def __init__(self):
+        self.y=WINDOW_HEIGHT/2
+        self.vY = 0
+        self.wingsUp = 1 
+
+    def move(self):
+        self.y += self.vY*fpsCoeff()
+        self.vY += gravity # add gravity
+        
+        self.wingsUp += 1
+        self.wingsUp %= 10
+
+    def flap(self):
+        self.vY = -5
+
+    def show(self):
+        angle = -self.vY*2
+
+        if self.wingsUp < 5:
+            screen.blit(pg.transform.rotate(Bird.pic,angle),(Bird.x,self.y))
+        else:
+            screen.blit(pg.transform.rotate(Bird.pic2,angle),(Bird.x,self.y))
+
+class Environment:
+    backPic = pg.transform.scale(pg.image.load("./res/Background.bmp"), (WINDOW_WIDTH,WINDOW_HEIGHT))
+    backPicW = backPic.get_width()
+
+    groundPic = pg.transform.scale(pg.image.load("./res/Ground.bmp"), (WINDOW_WIDTH/3,WINDOW_WIDTH/9))
+    groundPicH = groundPic.get_height()
+    groundPicW = groundPic.get_width()
+    groundH = WINDOW_HEIGHT/10
+
+    def __init__(self):
+        self.groundX = 0
+        self.backX = 0
+        self.pipePairs = []
+
+        self.started = False
+
+    def update(self, ui, started):
+        # move ground
+        self.groundX -= speed*fpsCoeff()
+        if self.groundX <= -Environment.groundPicW:
+            self.groundX = 0
+
+        # move background
+        self.backX -= speed/2 *fpsCoeff()
+        if self.backX <= -Environment.backPicW:
+            self.backX = 0
+
+        # move pipe pairs
+        for pipePair in self.pipePairs:
+            if pipePair.move():
+                ui.changeScore(1)
+
+        # manage pipe pairs
+        if started:
+            if len(self.pipePairs) == 0 or WINDOW_WIDTH - (self.pipePairs[-1].x + PipePair.w) > pipeDist:
+                self.pipePairs.append(PipePair())
+        
+        if len(self.pipePairs) > 0: 
+            if self.pipePairs[0].x + PipePair.w < 0:
+                del self.pipePairs[0]
+    
+    def collide(self,bird):
+        if bird.y + Bird.h > WINDOW_HEIGHT-Environment.groundH:
+            return True
+        
+        for pipePair in self.pipePairs:
+            if pipePair.x < bird.x < pipePair.x + PipePair.w or pipePair.x < bird.x + Bird.w < pipePair.x + PipePair.w:
+                if bird.y + Bird.h > pipePair.y + PipePair.gap or bird.y < pipePair.y:
+                    return True
+        return False
+
+    def show(self, ui, started):
+        # show background pieces
+        for x in range(int(self.backX),WINDOW_WIDTH,WINDOW_WIDTH):
+            screen.blit(self.backPic,(x,-Environment.groundH+4))
+
+        ui.show(started)
+
+        # show pipes
+        for pipePair in self.pipePairs:
+            pipePair.show()
+
+        # show ground pieces
+        for x in range(int(self.groundX),WINDOW_WIDTH,Environment.groundPicW):
+            screen.blit(Environment.groundPic,(x,WINDOW_HEIGHT-Environment.groundH))
+
+class UI:
+    planeYc = WINDOW_HEIGHT * 0.25 # y center position
+
+    planeW = WINDOW_WIDTH/4
+    planeH = planeW*0.17
+
+    planeY = planeYc - planeH/2
+    planePic = pg.transform.scale(pg.image.load("./res/BannerPlane.bmp"), (planeW,planeH))
+
+    fontColor = (255,0,0)
+    fontSize = WINDOW_HEIGHT/20
+    font = pg.font.Font("freesansbold.ttf", int(fontSize))
+
+    goLabel = font.render("Game Over" , True, fontColor) # GAME OVER LABEL
+    goX = WINDOW_WIDTH/2-goLabel.get_width()/2
+    goY = WINDOW_HEIGHT/2-goLabel.get_height()/2
+
+    tapPicW = WINDOW_WIDTH/5
+    tapPicH = WINDOW_HEIGHT/4
+    tapPic = pg.transform.scale(pg.image.load("./res/TapToStart.bmp"), (tapPicW,tapPicH))
 
 
-playerW = playerSize
-playerH = int(playerSize/1.3)
+    def __init__(self):
+        self.planeX = 0
+        self.scoreLabelX = -2*UI.planeW/3-10 # scoreLabelX
+        self.score = 0
+        self.changeScore(0)
+        
+    def update(self):
+        if ui.planeX < WINDOW_WIDTH/2-(UI.planeW/3)+UI.planeW:
+            self.planeX += speed*fpsCoeff()
 
-ripW = playerW + 2
-ripH = playerH + 24
+        if self.scoreLabelX < WINDOW_WIDTH/2-self.scoreLabel.get_width()/2:
+            self.scoreLabelX += speed*fpsCoeff()
 
-birdPic = pg.transform.scale(pg.image.load(resPath+'Bird.bmp'), (playerW,playerH))
-#birdPicUp = pg.transform.rotate(birdPic,20)
-#birdPicDown = pg.transform.rotate(birdPic,-20)
+    def changeScore(self,value):
+        self.score += value
+        self.scoreLabel = UI.font.render(str(self.score), True, UI.fontColor)
+        self.scoreLabelY = UI.planeYc - self.scoreLabel.get_height()/2
 
-birdPicW = pg.transform.scale(pg.image.load(resPath+'Bird2.bmp'), (playerW,playerH))
-#birdPicUpW = pg.transform.rotate(birdPic,20)
-#birdPicDownW = pg.transform.rotate(birdPic,-20)
+    def show(self, started):
+        if started == False:
+            screen.blit(UI.tapPic, (WINDOW_WIDTH*0.6, WINDOW_HEIGHT*0.5))
 
-
-player = Player(playerX, screenW-borderThickness-playerW ,playerW,playerH)
-
-backgroundPic = pg.transform.scale(pg.image.load(resPath+'Background.bmp'), (screenW,screenH))
-
-planePic = pg.transform.scale(pg.image.load(resPath+'BannerPlane.bmp'), (planePicW,planePicH))
-
-
-groundPic = pg.transform.scale(pg.image.load(resPath+'Ground.bmp'), (groundSize,int(groundSize*0.3)))
-groundPicH = groundPic.get_height()
-groundPicW = groundPic.get_width()
-
-gameOverLabel = font.render("Game Over" , True, fontC)
-gameOverLabelX = screenW/2-gameOverLabel.get_width()/2
-gameOverLabelY = screenH/2-gameOverLabel.get_height()/2
-
-ripPic = pg.image.load(resPath+'RIP.bmp')
-ripPic = pg.transform.scale(ripPic, (ripW,ripH))
-deadCrossPic = pg.transform.scale(pg.image.load(resPath+'DeadCross.bmp'), (deathCrossSize,deathCrossSize))
-auaPic = pg.transform.scale(pg.image.load(resPath+'Aua.bmp'), (auaW,auaH))
-skelettPic = pg.transform.scale(pg.image.load(resPath+'BirdSkelett.bmp'), (playerW,playerH))
-tapPicW = int(screenW/5)
-tapPicH = int(screenH/4)
-tapPic = pg.transform.scale(pg.image.load(resPath+'TapToStart.bmp'), (tapPicW,tapPicH))
+        screen.blit(UI.planePic,  (self.planeX-UI.planeW, UI.planeY))
+        screen.blit(self.scoreLabel,(self.scoreLabelX,self.scoreLabelY))
 
 
-
-flap = pg.mixer.Sound(resPath+'Wing.ogg')
-#die = pg.mixer.Sound('DieSound.wav')
-hit = pg.mixer.Sound(resPath+'Hit.ogg')
-point = pg.mixer.Sound(resPath+'Point.ogg')
-
-pg.mixer.music.load(resPath+"Music.ogg")
-pg.mixer.music.play(-1)
-
-mKeyD = True
-newColumnY = 380
-
+# WORKING LOOP
+work = True
 while work:
-	columnProtection = gapBetweenPipes
-	playerpos = {'x1':playerX,'y1':screenH-playerH-borderThickness}
-	gameRun = True
-	gates = []
-	score = 0
-	scoreLabel = font.render(str(score) , True, fontC)
-	scoreLabelY = screenH/2-scoreLabel.get_height()/2-screenH/4
+    # RESET
+    bird = Bird()
+    environment = Environment()
+    ui = UI()
+    started = False
 
-	showGameOver = 0
-	pg.mouse.set_visible(False)
-	groundX = 0
-	backgroundX = 0
-	player.dead = False
-	player.deathTime = 0
-	speed = flySpeed
-	player.y2=screenH/2+player.h/2-2
-	player.y1 = player.y2-player.h
-	player.gravityStrength = 0
-	startRun = True
+    # MAIN GAME RUN LOOP
+    gameRun = True
+    while gameRun == True:
+        # INTERACTION
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                work = False
+                gameRun = False
+            elif event.type == pg.KEYDOWN:
+                if event.key == pg.K_SPACE or event.key == pg.K_d:
+                    started = True
+                    bird.flap()
+                elif event.key == pg.K_ESCAPE:
+                    work = False
+                    gameRun = False
 
-	planeX = 0
-	scoreLabelX = -2*planePicW/3-10
-	player.deadX = 0
-	player.deadY = 0
-	sinX = 0
-	while startRun:
-		for event in pg.event.get():
-			if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
-				work = False
-				gameRun = False
-				startRun = False
-			else:
-				startRun = False
+        # GAME PHYSICS
+        if started:
+            bird.move()
 
+        environment.update(ui, started)
+        gameRun = gameRun and not environment.collide(bird)
 
+        ui.update()
 
-		#if player.y2 < screenH-borderThickness-2:
-		#	player.gravityStrength += 1.1
-		if playerStartMoveMode == 1:
-			sinX += 1*clock.get_fps()/60
+        # SHOW
+        environment.show(ui, started) # includes rendering UI
+        bird.show()
 
-			playerY = int(4*math.sin(sinX*0.1))
-			player.y2+=playerY
-			player.y1+=playerY
-		elif playerStartMoveMode == 2:
-			player.gravityStrength += 1
-			if player.y2 > screenH*0.6:
-				player.gravityStrength = -14
-		else:
-			pass
-		player.move()
+        pg.display.flip()
 
+        clock.tick(fps)
 
-		groundX -=speed
-		if groundX == -50*groundPicW:
-			groundX = 0
+    # GAME OVER LOOP
+    t = gameOverTime * int(work)
+    while t > 0:
+        for event in pg.event.get():
+            if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
+                t = -1
+                work = False
+                gameRun = False
+        screen.fill((0,0,0))
+        screen.blit(UI.goLabel,(UI.goX,UI.goY))
+        pg.display.flip()
+        clock.tick(fps)
+        t -= 1
 
-		backgroundX -= speed/2
-		if backgroundX == -20*screenW:
-			backgroundX = 0
-
-		#show
-		for x in range(int(backgroundX),screenW,screenW):
-			screen.blit(backgroundPic,(x,-borderThickness+4))
-
-		for x in range(int(groundX),screenW,groundPicW):
-			screen.blit(groundPic,(x,screenH-borderThickness))
-
-		player.show()
-
-		screen.blit(tapPic,(int(screenW/2-tapPicW/2),int(screenH/2)))#-tapPicH/2))
-
-		pg.display.flip()
-
-		clock.tick(fps)
-
-	############################################################################
-	while gameRun:
-		for event in pg.event.get():
-			if event.type == pg.QUIT:
-				work = False
-				gameRun = False
-
-			elif event.type == pg.KEYDOWN:
-				if event.key == pg.K_SPACE or event.key == pg.K_d: #or event.key == pg.K_a:
-					if not player.dead:
-						player.gravityStrength = flapForce
-						flap.play()
-				if event.key == pg.K_ESCAPE:
-					work = False
-					gameRun = False
-
-		if player.y2 < screenH-borderThickness-2:
-			player.gravityStrength += gravityForce
-
-		player.move()
-		if player.dead:
-			player.deathTime += 1
-
-		groundX -= speed
-		if groundX == -5*groundPicW:
-			groundX = 0
-		backgroundX -= speed/2
-		if backgroundX == -20*screenW:
-			backgroundX = 0
-
-		if columnProtection <= 0:
-			#if newColumnY > 40:
-			#	newColumnY -= 40
-			#else:
-			#	newColumnY = 380
-			newColumnY = r.randrange(0+int(gateH/2),screenH-int(gateH/2)-borderThickness)
-			gates.append(Gate(newColumnY))
-			columnProtection = gapBetweenPipes
-
-		columnProtection -= speed*clock.get_fps()/60
-
-
-		delGates = []
-
-		for gate in gates:
-			gate.move()
-
-			if gate.x2 < player.x1 and gate.scored == False:
-				score += 1
-				scoreLabel = font.render(str(score) , True, fontC)
-				scoreLabelY = screenH/2-scoreLabel.get_height()/2-screenH/4
-				point.play()
-				gate.scored = True
-
-			# check if player should die
-			elif player.deadX == 0:
-				if player.y2 > screenH-borderThickness or (
-					player.x2-10 > gate.x1 and 
-					player.x1+10 < gate.x2 and 
-					(player.y2-5 > gate.y2 or player.y1+5 < gate.y1)): # check if player position is valid	
-					
-					hit.play()
-					player.deadX = player.x1+player.w/2 - deathCrossSize/2
-					player.deadY = player.y1+player.h/2 - deathCrossSize/2
-					showGameOver = deathTime
-
-			if gate.x2 < 0:
-				delGates.append(gate)
-
-		for gate in delGates:
-			gates.pop(gates.index(gate))
-			delGates.pop(delGates.index(gate))
-
-		if player.deathTime > deathTime:
-			print("Game Over! Score: {}".format(score))
-			gameRun = False
-		#show
-
-		screen.fill((0,0,0))
-
-		for x in range(int(backgroundX),screenW,screenW):
-			screen.blit(backgroundPic,(x,-borderThickness+4))
-
-		if planeX < screenW/2-(planePicW/3)+planePicW:
-			planeX += speed*clock.get_fps()/60
-		if scoreLabelX < screenW/2-scoreLabel.get_width()/2 or player.dead:
-			scoreLabelX += speed*clock.get_fps()/60
-
-		if player.dead:
-			scoreLabelX += 4
-			planeX += 4
-
-
-		screen.blit(planePic,(planeX-planePicW,screenH/2-planePicH/2-screenH/4))
-		screen.blit(scoreLabel,(scoreLabelX,scoreLabelY))
-
-		if showGameOver > 0:
-			screen.blit(gameOverLabel,(gameOverLabelX,gameOverLabelY))
-			showGameOver -= 1
-			player.dead = True
-			speed = 0
-
-			#gameRun = False
-		for gate in gates:
-			gate.show()
-
-		for x in range(int(groundX),screenW,groundPicW):
-			screen.blit(groundPic,(x,screenH-borderThickness))
-		player.show()
-
-		pg.display.flip()
-
-		clock.tick(fps)
-
-
-print("Program ended")
+pg.quit()
